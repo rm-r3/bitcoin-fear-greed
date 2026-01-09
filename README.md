@@ -1,3 +1,8 @@
+⚠️ Work in progress
+
+Early-stage experiment. Results and code may change.
+
+
 # 🚀 Bitcoin Advisor - ML-Powered Price Prediction
 
 ![Bitcoin Prediction](https://img.shields.io/badge/ML-Neural_Network-brightgreen) ![p5.js](https://img.shields.io/badge/p5.js-1.6.0-ff69b4) ![ML5.js](https://img.shields.io/badge/ML5.js-latest-orange)
