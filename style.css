@@ -341,6 +341,37 @@ button:active {
   box-shadow: 0 0 30px rgba(0, 255, 136, 0.4);
 }
 
+/* ========== Attribution Section ========== */
+.attribution-section {
+  margin: 40px 0 20px 0;
+  padding: 20px;
+  background-color: rgba(3, 15, 118, 0.5);
+  border: 2px solid rgba(49, 250, 3, 0.4);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.attribution-text {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: clamp(0.6rem, 1.3vw, 0.75rem);
+  margin: 0;
+  line-height: 1.6;
+}
+
+.attribution-link {
+  color: #31fa03;
+  text-decoration: none;
+  text-shadow: 0 0 5px #31fa03;
+  transition: all 0.3s ease;
+  font-weight: bold;
+}
+
+.attribution-link:hover {
+  color: #50ff22;
+  text-shadow: 0 0 10px #31fa03, 0 0 20px #31fa03;
+  text-decoration: underline;
+}
+
 /* ========== About Section ========== */
 .about-section {
   margin: 40px 0;

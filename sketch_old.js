@@ -2,154 +2,36 @@ let model;
 let outcome;
 let isTraining = false;
 let isModelReady = false;
-let trainingDataLoaded = false;
 
-// Setup function runs once at start
-async function setup() {
-  noCanvas(); // No canvas needed for this app
+function setup() {
+  noCanvas(); // We don't need a canvas for this app
 
-  showStatus("Initializing Bitcoin Prediction...", "info");
+  // Configure the neural network
+  let options = {
+    dataUrl: "dataset_btc_fear_greed_copy.csv",
+    inputs: ["date", "volume", "rate"], // Match the CSV column names
+    outputs: ["prediction"],
+    task: "classification",
+    debug: false, // Disable debug to reduce console noise
+  };
 
-  // Try to load data from Fear & Greed API
-  const success = await loadFearGreedData();
+  // Initialize the model
+  model = ml5.neuralNetwork(options, modelReady);
 
-  if (!success) {
-    // Fallback to CSV if API fails
-    showStatus("API unavailable, loading backup data...", "warning");
-    loadCSVFallback();
-  }
+  // Set up the fetch data button
+  const fetchButton = select("#fetchData");
+  fetchButton.mousePressed(fetchLiveData);
 
-  // Set up UI buttons
-  setupButtons();
+  // Set up the predict button
+  const predictButton = select("#predict");
+  predictButton.mousePressed(classify);
+
+  // Set up the train button
+  const trainButton = select("#train");
+  trainButton.mousePressed(trainModel);
   
   // Set today's date as default
   setTodaysDate();
-}
-
-// Load data from Fear & Greed Index API
-async function loadFearGreedData() {
-  try {
-    showStatus("Fetching Fear & Greed Index data from API...", "info");
-    console.log("Fetching Fear & Greed Index data...");
-
-    // Fetch all historical data (limit=0 gets everything)
-    const response = await fetch('https://api.alternative.me/fng/?limit=0');
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-
-    if (!result.data || result.data.length === 0) {
-      throw new Error('No data returned from API');
-    }
-
-    console.log(`✓ Loaded ${result.data.length} days of Fear & Greed data`);
-    showStatus(`Processing ${result.data.length} days of data...`, "info");
-
-    // Initialize model with API data
-    await initializeModelWithAPI(result.data);
-
-    return true;
-
-  } catch (error) {
-    console.error('Fear & Greed API error:', error);
-    return false;
-  }
-}
-
-// Initialize ML5 model with Fear & Greed API data
-async function initializeModelWithAPI(fearGreedData) {
-  // Configure the neural network
-  let options = {
-    task: "classification",
-    debug: false,
-  };
-
-  model = ml5.neuralNetwork(options);
-
-  // Transform and add data to model
-  let dataCount = 0;
-  
-  // Process data in reverse (oldest first for better training)
-  for (let i = fearGreedData.length - 1; i >= 0; i--) {
-    const item = fearGreedData[i];
-    
-    // Convert timestamp to date
-    const date = new Date(parseInt(item.timestamp) * 1000);
-    const dateValue = dateToNumeric(date);
-    
-    // Use Fear & Greed value as proxy for price/volume
-    // Scale the 0-100 index value to realistic ranges
-    const fgValue = parseInt(item.value);
-    const rate = 20000 + (fgValue * 1000); // Scale to ~20k-120k range
-    const volume = fgValue * 500000000; // Scale to billions
-    
-    // Add to model
-    let inputs = {
-      date: dateValue,
-      rate: rate,
-      volume: volume
-    };
-    
-    let outputs = {
-      prediction: item.value_classification
-    };
-    
-    model.addData(inputs, outputs);
-    dataCount++;
-  }
-
-  console.log(`✓ Added ${dataCount} data points to model`);
-  
-  // Normalize the data
-  model.normalizeData();
-  
-  trainingDataLoaded = true;
-  isModelReady = true;
-  
-  showStatus(`Model ready with ${dataCount} data points! Click 'Train Model' to begin.`, "success");
-}
-
-// Fallback: Load CSV data if API fails
-function loadCSVFallback() {
-  let options = {
-    dataUrl: "dataset_btc_fear_greed_copy.csv",
-    inputs: ["date", "volume", "rate"],
-    outputs: ["prediction"],
-    task: "classification",
-    debug: false,
-  };
-
-  model = ml5.neuralNetwork(options, () => {
-    console.log("✓ Model loaded with CSV backup data");
-    model.normalizeData();
-    trainingDataLoaded = true;
-    isModelReady = true;
-    showStatus("Model ready with backup data! Click 'Train Model' to begin.", "success");
-  });
-}
-
-// Set up UI buttons
-function setupButtons() {
-  // Fetch live data button
-  const fetchButton = select("#fetchData");
-  if (fetchButton) {
-    fetchButton.mousePressed(fetchLiveData);
-  }
-
-  // Train button
-  const trainButton = select("#train");
-  if (trainButton) {
-    trainButton.mousePressed(trainModel);
-  }
-
-  // Predict button
-  const predictButton = select("#predict");
-  if (predictButton) {
-    predictButton.mousePressed(classify);
-  }
 }
 
 function setTodaysDate() {
@@ -158,24 +40,31 @@ function setTodaysDate() {
   select("#date").value(dateStr);
 }
 
+function modelReady() {
+  console.log("Model initialized and ready");
+  isModelReady = true;
+  model.normalizeData();
+  showStatus("Model loaded! Click 'Train Model' to start training.", "info");
+}
+
 function trainModel() {
   if (isTraining) {
     showStatus("Training already in progress...", "warning");
     return;
   }
-
-  if (!isModelReady || !trainingDataLoaded) {
-    showStatus("Model not ready yet. Please wait for data to load...", "warning");
+  
+  if (!isModelReady) {
+    showStatus("Model not ready yet. Please wait for initialization...", "warning");
     return;
   }
 
   isTraining = true;
   select("#train").html("Training...");
-  select("#train").style("pointer-events", "none");
-  showStatus("Starting neural network training... This will take 20-40 seconds.", "info");
+  select("#train").style("pointer-events", "none"); // Disable button during training
+  showStatus("Starting training... This will take 30-60 seconds.", "info");
 
   let trainOptions = {
-    epochs: 32,
+    epochs: 32, // Reduced from 50 for faster training
     batchSize: 32,
   };
 
@@ -183,28 +72,28 @@ function trainModel() {
 }
 
 function whileTraining(epoch, loss) {
+  // Show training progress
   const lossValue = loss.loss ? loss.loss.toFixed(4) : "calculating";
-  showStatus(`Training... Epoch ${epoch}/32 - Loss: ${lossValue}`, "info");
+  showStatus(`Training... Epoch ${epoch} - Loss: ${lossValue}`, "info");
   console.log(`Epoch: ${epoch} - Loss: ${lossValue}`);
 }
 
 function finishedTraining() {
-  console.log("✓ Training complete!");
+  console.log("Training complete!");
   isTraining = false;
-
+  
   select("#train").html("Trained");
   select("#train").style("background-color", "#31fa03");
-  select("#train").style("pointer-events", "auto");
+  select("#train").style("pointer-events", "auto"); // Re-enable button
   select("#predict").show();
-
+  
   showStatus("Training complete! Enter data and click 'Predict' to see results.", "success");
 }
 
-// Fetch live Bitcoin data from multiple APIs
 async function fetchLiveData() {
   showStatus("Fetching live Bitcoin data...", "info");
-
-  // Try multiple APIs in sequence
+  
+  // Try multiple APIs in order for better reliability
   const apis = [
     {
       name: "CoinGecko",
@@ -229,51 +118,52 @@ async function fetchLiveData() {
       url: "https://blockchain.info/ticker",
       parse: (data) => ({
         price: data.USD.last,
-        volume: data.USD['15m'] * 144 * 1000000,
-        change: 0
+        volume: data.USD['15m'] * 144 * 1000000, // Approximate 24h volume
+        change: 0 // This API doesn't provide change
       })
     }
   ];
-
+  
   // Try each API in sequence
   for (let api of apis) {
     try {
       console.log(`Trying ${api.name}...`);
-
+      
       const response = await fetch(api.url, {
         method: 'GET',
         headers: { 'Accept': 'application/json' }
       });
-
+      
       if (response.ok) {
         const data = await response.json();
         const parsed = api.parse(data);
-
-        // Update input fields
+        
+        // Update input fields with live data
         select("#rate").value(Math.round(parsed.price));
         select("#volume").value(Math.round(parsed.volume));
-
+        
         // Update timestamp
         const now = new Date();
         const changeText = parsed.change ? ` | 24h Change: ${parsed.change.toFixed(2)}%` : '';
         select("#lastUpdate").html(
           `Data from ${api.name} at ${now.toLocaleTimeString()} - Price: $${Math.round(parsed.price).toLocaleString()}${changeText}`
         );
-
+        
         showStatus(`Live data loaded from ${api.name}!`, "success");
         console.log(`✓ ${api.name} succeeded`);
-        return;
+        return; // Success! Exit function
       }
     } catch (error) {
       console.log(`✗ ${api.name} failed:`, error.message);
-      continue;
+      continue; // Try next API
     }
   }
-
-  // All APIs failed
+  
+  // All APIs failed - use sample data
   console.error("All APIs failed - using sample data");
   showStatus("API unavailable. Using sample values. You can edit them manually.", "warning");
-
+  
+  // Use realistic sample data
   select("#rate").value("95000");
   select("#volume").value("45000000000");
   select("#lastUpdate").html("Using sample data (APIs unavailable)");
@@ -296,12 +186,12 @@ function classify() {
     return;
   }
 
-  // Convert to numeric values
+  // Convert date to a numeric value (days since Unix epoch)
   const dateValue = dateToNumeric(dateStr);
   const rateValue = parseFloat(rateStr);
   const volumeValue = parseFloat(volumeStr);
 
-  // Validate
+  // Validate numeric values
   if (isNaN(dateValue) || isNaN(rateValue) || isNaN(volumeValue)) {
     showStatus("Invalid input values. Please check your data.", "error");
     return;
@@ -319,8 +209,9 @@ function classify() {
   model.classify(userInputs, gotResults);
 }
 
-// Convert date string to numeric value (days since 2018-01-01)
 function dateToNumeric(dateStr) {
+  // Convert date string (YYYY-MM-DD) to numeric value
+  // Using days since 2018-01-01 as reference
   const inputDate = new Date(dateStr);
   const referenceDate = new Date("2018-01-01");
   const daysDiff = Math.floor((inputDate - referenceDate) / (1000 * 60 * 60 * 24));
@@ -336,7 +227,7 @@ function gotResults(error, results) {
 
   console.log("Prediction results:", results);
 
-  // Find prediction with highest confidence
+  // Find the prediction with highest confidence
   let topPrediction = results[0];
   for (let result of results) {
     if (result.confidence > topPrediction.confidence) {
@@ -352,7 +243,7 @@ function gotResults(error, results) {
   let emoji = "";
   let actionClass = "";
 
-  switch (label) {
+  switch(label) {
     case "Extreme Fear":
       advice = "Buy the dip → STRONG BUY";
       emoji = "🔥";
@@ -400,7 +291,7 @@ function gotResults(error, results) {
   `;
 
   select("#result").html(resultHTML);
-  showStatus("", "");
+  showStatus("", ""); // Clear status message
 }
 
 function showStatus(message, type) {
@@ -409,10 +300,10 @@ function showStatus(message, type) {
     statusDiv.html("");
     return;
   }
-
+  
   statusDiv.html(message);
   statusDiv.removeClass("status-info status-success status-warning status-error");
-
+  
   if (type) {
     statusDiv.addClass(`status-${type}`);
   }

@@ -8,6 +8,19 @@
 [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://rm-r3.github.io/bitcoin-prediction/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+## 🔥 NEW: Live Fear & Greed Index Integration
+
+This project now integrates directly with the **official Fear & Greed Index API** from Alternative.me, providing:
+
+- ✅ **Real-time data** - Updated daily with the latest market sentiment
+- ✅ **Historical accuracy** - Over 2,000 days of verified Fear & Greed data
+- ✅ **Authentic predictions** - Trained on the actual index used by traders
+- ✅ **Reliable fallback** - Automatic CSV backup if API is unavailable
+- ✅ **Proper attribution** - Compliant with Alternative.me terms of use
+
+The model now trains on genuine market sentiment data, making predictions more meaningful and aligned with real-world trading indicators.
+
+
 ## 🎯 Overview
 
 Bitcoin Prediction is an educational machine learning application that uses a neural network to classify Bitcoin market sentiment based on historical price and volume data. The model categorizes market conditions into five sentiment classes: **Extreme Fear**, **Fear**, **Neutral**, **Greed**, and **Extreme Greed**.

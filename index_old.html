@@ -5,7 +5,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bitcoin Prediction - Neural Network</title>
-  <meta name="description" content="Educational Bitcoin price prediction using neural networks and the Fear & Greed Index">
+  <meta name="description" content="Educational Bitcoin price prediction using neural networks">
   
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon_btc_96x96.png">
@@ -65,41 +65,20 @@
 
     <div id="result" class="result-box"></div>
     
-    <!-- Attribution Section (Required by Alternative.me Terms) -->
-    <div class="attribution-section">
-      <p class="attribution-text">
-        Fear & Greed Index data provided by 
-        <a href="https://alternative.me/crypto/fear-and-greed-index/" 
-           target="_blank" 
-           rel="noopener noreferrer"
-           class="attribution-link">
-          Alternative.me Crypto Fear & Greed Index
-        </a>
-      </p>
-    </div>
-    
     <div class="about-section">
       <details>
         <summary>About This Project</summary>
         <div class="about-content">
           <p><strong>How it works:</strong></p>
-          <p>This tool uses a neural network trained on the historical Fear & Greed Index 
-          to predict Bitcoin market sentiment. The model learns patterns from thousands of 
-          days of data and classifies market conditions into five categories: 
+          <p>This tool uses a neural network trained on historical Bitcoin data 
+          (price, volume, date) to predict market sentiment categories: 
           Extreme Fear, Fear, Neutral, Greed, and Extreme Greed.</p>
           
-          <p><strong>Training Data:</strong> Historical Fear & Greed Index data (2018-present) 
-          - Over 2,000 data points fetched daily from the official API</p>
+          <p><strong>Training Data:</strong> Historical Bitcoin prices and volumes (2018-2024) - 1,885 data points used to train the neural network</p>
           
-          <p><strong>Live Data:</strong> Optional real-time Bitcoin price fetching from 
-          cryptocurrency APIs for making predictions on current market conditions</p>
+          <p><strong>Live Data:</strong> Optional real-time price fetching from cryptocurrency APIs for making predictions on current market conditions</p>
           
-          <p><strong>Model:</strong> ML5.js Feedforward Neural Network with classification</p>
-          
-          <p><strong>Data Source:</strong> The Fear and Greed Index measures market sentiment 
-          on a scale from 0 (Extreme Fear) to 100 (Extreme Greed). It's calculated from 
-          multiple factors including volatility, market momentum, social media sentiment, 
-          surveys, Bitcoin dominance, and Google Trends.</p>
+          <p><strong>Model:</strong> ML5.js Neural Network with classification</p>
           
           <p><strong>Disclaimer:</strong> This is a learning project. Cryptocurrency 
           markets are highly volatile and unpredictable. Never use this for actual 
