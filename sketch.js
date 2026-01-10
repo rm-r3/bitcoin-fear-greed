@@ -43,14 +43,16 @@ async function loadCSVData() {
     
     let options = {
       dataUrl: "dataset_btc_fear_greed_copy.csv",
-      inputs: ["date", "volume", "rate"],
+      inputs: ["date", "volume", "rate"], // ONLY these 3 columns
       outputs: ["prediction"],
       task: "classification",
-      debug: false,
+      debug: true, // Enable to see what's happening
     };
 
     model = ml5.neuralNetwork(options, async () => {
       console.log("✓ Model loaded with training data");
+      console.log("Model inputs:", model.options.inputs);
+      console.log("Model outputs:", model.options.outputs);
       
       await new Promise(r => setTimeout(r, 500));
       
@@ -59,7 +61,6 @@ async function loadCSVData() {
         trainingDataLoaded = true;
         isModelReady = true;
         
-        // Get the row count from the CSV
         showStatus("Model ready! Click 'Train Model' to begin.", "success");
         console.log("✓ Ready to train");
       } catch (error) {
@@ -267,6 +268,15 @@ function gotResults(error, results) {
   }
 
   console.log("Prediction results:", results);
+  console.log("Results type:", typeof results);
+  console.log("Is array?", Array.isArray(results));
+
+  // Handle case where results is not an array
+  if (!Array.isArray(results)) {
+    console.error("Results is not an array:", results);
+    showStatus("Invalid prediction format. Please retrain the model.", "error");
+    return;
+  }
 
   if (!results || results.length === 0) {
     console.error("No results returned from model");
