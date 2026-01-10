@@ -10,13 +10,25 @@ async function setup() {
 
   showStatus("Initializing Bitcoin Prediction...", "info");
 
-  // Wait for TensorFlow.js to be ready
+  // Wait for TensorFlow.js to be ready and set backend
   try {
+    await tf.setBackend('webgl'); // Use WebGL instead of WebGPU (more compatible)
     await tf.ready();
-    console.log("✓ TensorFlow.js ready");
+    console.log("✓ TensorFlow.js ready with backend:", tf.getBackend());
   } catch (error) {
     console.error("TensorFlow initialization error:", error);
+    // Try CPU fallback
+    try {
+      await tf.setBackend('cpu');
+      await tf.ready();
+      console.log("✓ TensorFlow.js ready with CPU backend");
+    } catch (e) {
+      console.error("TensorFlow CPU fallback failed:", e);
+    }
   }
+
+  // Small delay to ensure backend is fully initialized
+  await new Promise(resolve => setTimeout(resolve, 500));
 
   // Try to load data from Fear & Greed API
   const success = await loadFearGreedData();
@@ -111,18 +123,18 @@ async function initializeModelWithAPI(fearGreedData) {
 
   console.log(`✓ Added ${dataCount} data points to model`);
   
-  // Wait a moment for TensorFlow to be fully ready, then normalize
-  setTimeout(() => {
-    try {
-      model.normalizeData();
-      trainingDataLoaded = true;
-      isModelReady = true;
-      showStatus(`Model ready with ${dataCount} data points! Click 'Train Model' to begin.`, "success");
-    } catch (error) {
-      console.error("Error normalizing data:", error);
-      showStatus("Error initializing model. Please refresh the page.", "error");
-    }
-  }, 100);
+  // Use Promise-based delay to ensure TensorFlow is fully ready
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  try {
+    model.normalizeData();
+    trainingDataLoaded = true;
+    isModelReady = true;
+    showStatus(`Model ready with ${dataCount} data points! Click 'Train Model' to begin.`, "success");
+  } catch (error) {
+    console.error("Error normalizing data:", error);
+    showStatus("Error initializing model. Please refresh the page.", "error");
+  }
 }
 
 // Fallback: Load CSV data if API fails
@@ -136,12 +148,22 @@ async function loadCSVFallback() {
       debug: false,
     };
 
-    model = ml5.neuralNetwork(options, () => {
+    model = ml5.neuralNetwork(options, async () => {
       console.log("✓ Model loaded with CSV backup data");
-      model.normalizeData();
-      trainingDataLoaded = true;
-      isModelReady = true;
-      showStatus("Model ready with backup data! Click 'Train Model' to begin.", "success");
+      
+      // Wait for TensorFlow to be ready
+      await new Promise(r => setTimeout(r, 500));
+      
+      try {
+        model.normalizeData();
+        trainingDataLoaded = true;
+        isModelReady = true;
+        showStatus("Model ready with backup data! Click 'Train Model' to begin.", "success");
+      } catch (error) {
+        console.error("Error normalizing CSV data:", error);
+        showStatus("Error loading backup data. Please refresh.", "error");
+      }
+      
       resolve();
     });
   });
