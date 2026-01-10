@@ -4,13 +4,10 @@ let isTraining = false;
 let isModelReady = false;
 let trainingDataLoaded = false;
 
-// Setup function runs once at start
 async function setup() {
   noCanvas();
-
   showStatus("Initializing Bitcoin Prediction...", "info");
 
-  // Force WebGL backend (more stable than WebGPU)
   try {
     await tf.setBackend('webgl');
     await tf.ready();
@@ -26,27 +23,36 @@ async function setup() {
     }
   }
 
-  // Extra delay to ensure backend is fully initialized
   await new Promise(resolve => setTimeout(resolve, 500));
-
-  // Just use CSV - it works!
   await loadCSVData();
-
   setupButtons();
   setTodaysDate();
 }
 
-// Load CSV data (this method works!)
 async function loadCSVData() {
   return new Promise((resolve) => {
     showStatus("Loading training data...", "info");
     
+    // CRITICAL: Explicitly define architecture
     let options = {
       dataUrl: "dataset_btc_fear_greed_copy.csv",
-      inputs: ["date", "volume", "rate"], // ONLY these 3 columns
+      inputs: ["date", "volume", "rate"],
       outputs: ["prediction"],
       task: "classification",
-      debug: true, // Enable to see what's happening
+      debug: true,
+      // Explicitly define the network layers
+      layers: [
+        {
+          type: 'dense',
+          units: 16,
+          activation: 'relu'
+        },
+        {
+          type: 'dense',
+          units: 5,
+          activation: 'softmax'
+        }
+      ]
     };
 
     model = ml5.neuralNetwork(options, async () => {
@@ -60,7 +66,6 @@ async function loadCSVData() {
         model.normalizeData();
         trainingDataLoaded = true;
         isModelReady = true;
-        
         showStatus("Model ready! Click 'Train Model' to begin.", "success");
         console.log("✓ Ready to train");
       } catch (error) {
@@ -240,7 +245,6 @@ function classify() {
   console.log("  - Rate:", rateValue);
   console.log("  - Volume:", volumeValue);
 
-  // Use object format for CSV-loaded model
   let userInputs = {
     date: dateValue,
     volume: volumeValue,
@@ -271,7 +275,6 @@ function gotResults(error, results) {
   console.log("Results type:", typeof results);
   console.log("Is array?", Array.isArray(results));
 
-  // Handle case where results is not an array
   if (!Array.isArray(results)) {
     console.error("Results is not an array:", results);
     showStatus("Invalid prediction format. Please retrain the model.", "error");
