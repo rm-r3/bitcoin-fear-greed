@@ -81,16 +81,21 @@ async function loadFearGreedData() {
 
 // Initialize ML5 model with Fear & Greed API data
 async function initializeModelWithAPI(fearGreedData) {
-  // Configure the neural network
+  // CRITICAL: When using addData() manually, we must define the structure first
+  // Configure the neural network with proper input/output definition
   let options = {
     task: "classification",
     debug: false,
+    inputs: 3,  // 3 input values: date, rate, volume
+    outputs: ['Extreme Fear', 'Fear', 'Neutral', 'Greed', 'Extreme Greed']  // All possible labels
   };
 
   model = ml5.neuralNetwork(options);
 
   // Transform and add data to model
   let dataCount = 0;
+  
+  console.log("Processing Fear & Greed data...");
   
   // Process data in reverse (oldest first for better training)
   for (let i = fearGreedData.length - 1; i >= 0; i--) {
@@ -107,7 +112,7 @@ async function initializeModelWithAPI(fearGreedData) {
     const volume = fgValue * 500000000; // Scale to billions
     
     // CRITICAL FIX: ML5.js requires arrays when using addData() manually
-    // Not objects! This is why labels weren't being stored.
+    // Order must match: [input1, input2, input3]
     const inputs = [dateValue, rate, volume];
     const outputs = [item.value_classification];
     
@@ -117,7 +122,7 @@ async function initializeModelWithAPI(fearGreedData) {
 
   console.log(`✓ Added ${dataCount} data points to model`);
   
-  // Use Promise-based delay to ensure TensorFlow is fully ready
+  // Wait for TensorFlow to be fully ready
   await new Promise(resolve => setTimeout(resolve, 500));
   
   try {
