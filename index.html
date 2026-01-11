@@ -26,12 +26,12 @@
 
 <body>
   <div class="container">
-    <h1 class="title">Bitcoin Prediction</h1>
+    <h1 class="title">Bitcoin<br>Fear &amp; Greed</h1>
     <p class="subtitle">Neural Network Powered Sentiment Analysis</p>
     
     <div class="info-section">
       <p class="info-text">
-        Educational purposes only. Not financial advice!
+        For research purposes only. Not financial advice.
       </p>
     </div>
 
@@ -89,29 +89,38 @@
       <details>
         <summary>About This Project</summary>
         <div class="about-content">
-          <p><strong>How it works:</strong></p>
-          <p>This tool uses a neural network trained on the historical Fear & Greed Index 
-          to predict Bitcoin market sentiment. The model learns patterns from thousands of 
-          days of data and classifies market conditions into five categories: 
-          Extreme Fear, Fear, Neutral, Greed, and Extreme Greed.</p>
-          
-          <p><strong>Training Data:</strong> Historical Fear & Greed Index data (2018-present) 
-          - Over 2,000 data points fetched daily from the official API</p>
-          
-          <p><strong>Live Data:</strong> Optional real-time Bitcoin price fetching from 
-          cryptocurrency APIs for making predictions on current market conditions</p>
-          
-          <p><strong>Model:</strong> ML5.js Feedforward Neural Network with classification</p>
-          
-          <p><strong>Data Source:</strong> The Fear and Greed Index measures market sentiment 
-          on a scale from 0 (Extreme Fear) to 100 (Extreme Greed). It's calculated from 
-          multiple factors including volatility, market momentum, social media sentiment, 
-          surveys, Bitcoin dominance, and Google Trends.</p>
-          
-          <p><strong>Disclaimer:</strong> This is a learning project. Cryptocurrency 
-          markets are highly volatile and unpredictable. Never use this for actual 
-          investment decisions. Always DYOR (Do Your Own Research)!</p>
-        </div>
+  <p><strong>How it works:</strong></p>
+  <p>
+    This tool runs a small neural network directly in your browser. It is trained on historical
+    Bitcoin market data and Fear &amp; Greed Index values to classify market sentiment into five
+    categories: Extreme Fear, Fear, Neutral, Greed, and Extreme Greed.
+  </p>
+
+  <p><strong>Training data:</strong></p>
+  <p>
+    The model is trained on a static historical dataset (2018–2023) compiled from public sources
+    including Alternative.me (Fear &amp; Greed Index) and Yahoo Finance (price/volume), published on
+    Kaggle by Adil Bhatti.
+  </p>
+
+  <p><strong>Live data (optional):</strong></p>
+  <p>
+    You can fetch current Bitcoin price and 24h volume from CoinGecko to run a prediction for “right now”.
+    Live data is used only for prediction (inference), not for training.
+  </p>
+
+  <p><strong>Model &amp; tech:</strong></p>
+  <p>
+    Built with p5.js (UI), ml5.js / TensorFlow.js (neural network), and PapaParse (CSV parsing). Everything
+    runs client-side — no server, no accounts, no tracking.
+  </p>
+
+  <p><strong>Disclaimer:</strong></p>
+  <p>
+    For research purposes only. Not financial advice. Crypto markets are volatile and unpredictable — do not
+    use this tool for investment decisions.
+  </p>
+</div>
       </details>
     </div>
   </div>

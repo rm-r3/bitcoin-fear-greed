@@ -28,6 +28,31 @@ function setup() {
 }
 
 /* -----------------------------
+   training button pulse
+------------------------------ */
+function pulseTrainButton() {
+  const btn = document.querySelector("#train");
+  if (!btn) return;
+
+  btn.classList.remove("train-pulse"); // reset if needed
+  void btn.offsetWidth; // force reflow so animation restarts
+  btn.classList.add("train-pulse");
+}
+/* -----------------------------
+   helper function autoscroll
+------------------------------ */
+function scrollTrainingIntoView() {
+  const el = document.querySelector(".model-section");
+  if (!el) return;
+
+  requestAnimationFrame(() => {
+    el.scrollIntoView({
+      behavior: "smooth",
+      block: "center"
+    });
+  });
+}
+/* -----------------------------
    Main init (async)
 ------------------------------ */
 async function init() {
@@ -444,7 +469,7 @@ async function fetchLiveData() {
     select("#volume")?.value(Math.round(vol));
 
     const now = new Date();
-    lastUpdate?.html(`Last update: ${now.toLocaleString()}`);
+    lastUpdate?.html(`Last update (CoinGecko): ${now.toLocaleString()}`);
     console.log("✓ CoinGecko live data:", { price, vol });
   } catch (err) {
     console.error("Fetch Live Data failed:", err);
@@ -452,6 +477,9 @@ async function fetchLiveData() {
   } finally {
     btn?.removeAttribute("disabled");
     btn?.html("Fetch Live Data");
+     // bring Train button into focus
+  scrollTrainingIntoView();
+  pulseTrainButton();
   }
 }
 
