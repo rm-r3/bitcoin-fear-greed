@@ -521,6 +521,25 @@ function labelToAdvice(label) {
   }
 }
 
+/* -----------------------------
+   About section auto-scroll
+------------------------------ */
+document.addEventListener("DOMContentLoaded", () => {
+  const aboutDetails = document.querySelector(".about-section details");
+  if (!aboutDetails) return;
+
+  aboutDetails.addEventListener("toggle", () => {
+    if (aboutDetails.open) {
+      requestAnimationFrame(() => {
+        aboutDetails.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    }
+  });
+});
+
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }

@@ -1,93 +1,83 @@
-🟢 Bitcoin Fear & Greed
+🧠 Bitcoin Fear & Greed
 
 Neural Network Powered Sentiment Analysis
 
-A browser-based research project exploring Bitcoin market sentiment using a neural network trained on historical Fear & Greed Index data.
+How it works
 
-This tool classifies market conditions into five sentiment categories based on historical patterns and optional live market data.
-
-⸻
-
-🚀 Live Demo
-
-👉 GitHub Pages:
-https://rm-r3.github.io/bitcoin-prediction/
-
-⸻
-
-🧠 How It Works
-
-This project uses a feedforward neural network to classify Bitcoin market sentiment into one of the following categories:
+This project runs a small neural network directly in the browser to classify Bitcoin market sentiment.
+The model learns patterns from historical market data and Fear & Greed Index values and predicts one of five sentiment classes:
 	•	Extreme Fear
 	•	Fear
 	•	Neutral
 	•	Greed
 	•	Extreme Greed
 
-The model learns relationships between:
-	•	date (time progression)
-	•	Bitcoin price
-	•	trading volume
-	•	historical Fear & Greed Index values
-
-Predictions are performed entirely in the browser using JavaScript.
+The goal is educational and exploratory — to demonstrate how client-side machine learning can be applied to market sentiment analysis.
 
 ⸻
 
-📊 Training Data
+Training data
 
-The neural network is trained on a historical dataset (2018–2021) combining:
-	•	Bitcoin price and volume data
-	•	Crypto Fear & Greed Index values
+The model is trained on a static historical dataset (2018–2023) compiled from public sources:
+	•	Fear & Greed Index — Alternative.me
+	•	Bitcoin price & volume — Yahoo Finance
 
-The dataset is based on publicly available data from:
-	•	Alternative.me (Fear & Greed Index)
-	•	Yahoo Finance (market data)
+The dataset was published on Kaggle by Adil Bhatti and combines sentiment indicators with market data for supervised learning.
 
-Published on Kaggle by Adil Bhatti.
-
-The training data is static and not updated automatically.
+Training happens locally in the browser using this static dataset.
 
 ⸻
 
-🔄 Live Data
+Live data (optional)
 
-For experimentation purposes, the app can fetch current Bitcoin price and volume from:
-	•	CoinGecko API
-
-This live data is used only for inference, not for training.
+You can fetch current Bitcoin price and 24h volume from CoinGecko to generate a prediction for “right now”.
+	•	Live data is used only for inference
+	•	It is not added to the training dataset
+	•	No data is stored or sent anywhere
 
 ⸻
 
-🛠️ Technology Stack
-	•	p5.js — UI and interaction layer
-	•	ml5.js — Neural network abstraction (TensorFlow.js)
-	•	TensorFlow.js — Machine learning backend
+Model & tech stack
+	•	p5.js — UI & interaction
+	•	ml5.js / TensorFlow.js — Feedforward neural network (classification)
 	•	PapaParse — CSV parsing
-	•	CoinGecko API — Live Bitcoin market data
 
-All computation runs client-side. No server required.
-
-⸻
-
-⚠️ Disclaimer
-
-For research purposes only. Not financial advice.
-
-This project is intended for experimentation and learning.
-Cryptocurrency markets are highly volatile and unpredictable.
-
-Do not use this tool for investment decisions.
+Everything runs 100% client-side:
+	•	No server
+	•	No accounts
+	•	No tracking
 
 ⸻
 
-📎 Attribution
+### Model limitations
+This project is intentionally simple and has several important limitations:
 
-Fear & Greed Index data provided by:
-https://alternative.me/crypto/fear-and-greed-index/
+- **Static training data**  
+  The model is trained on historical data (2018–2023). It does not continuously learn or adapt to new market conditions.
+
+- **Limited feature set**  
+  Only date, price, volume, and Fear & Greed labels are used. Many influential factors such as macroeconomics, on-chain metrics, news events, or order book data are not included.
+
+- **Sentiment ≠ price prediction**  
+  The model predicts *market sentiment categories*, not future price movements. High confidence does not imply market direction.
+
+- **Correlation, not causation**  
+  The neural network learns correlations in past data. It does not understand causal relationships or external events.
+
+- **No performance guarantees**  
+  Like all machine learning models, results can be noisy, biased, or misleading — especially during unusual market regimes.
+
+This project is designed for **learning, experimentation, and interface exploration**, not for real-world trading or financial decision-making.
+
+Disclaimer
+
+For research purposes only.
+This project is not financial advice. Cryptocurrency markets are volatile and unpredictable — do not use this tool for investment decisions.
 
 ⸻
 
-📄 License
+Author
 
-MIT License
+Rene Mathis — AI Product & Experience Design
+	•	🌐 Portfolio: https://www.mathis-conceptdesign-portfolio.com
+	•	🔗 LinkedIn: https://www.linkedin.com/in/rene-mathis-conceptdesign

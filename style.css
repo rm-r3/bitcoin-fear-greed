@@ -459,6 +459,24 @@ details[open] summary::before {
   text-shadow: 0 0 5px #31fa03;
 }
 
+.about-content a {
+  color: #6fdcff; /* light blue */
+  text-decoration: none;
+  text-shadow: 0 0 6px rgba(111, 220, 255, 0.6);
+  transition: all 0.25s ease;
+}
+
+.about-content a:visited {
+  color: #6fdcff;
+}
+
+.about-content a:hover {
+  color: #9efcff;
+  text-shadow: 0 0 12px rgba(158, 252, 255, 0.9);
+  text-decoration: underline;
+}
+
+
 /* ========== Responsive Design ========== */
 @media (max-width: 768px) {
   .container {
