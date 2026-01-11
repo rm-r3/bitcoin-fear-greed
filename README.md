@@ -3,6 +3,8 @@
 
 # Bitcoin Fear & Greed
 
+**Live Demo:** 👉 https://rm-r3.github.io/bitcoin-fear-greed/
+
 **Version:** v2.1.1  
 Client-side neural network sentiment analysis for Bitcoin.
 
@@ -85,6 +87,16 @@ This project is intentionally simple and has several important limitations:
   Like all machine learning models, results can be noisy, biased, or misleading — especially during unusual market regimes.
 
 This project is designed for **learning, experimentation, and interface exploration**, not for real-world trading or financial decision-making.
+
+---
+
+## Live Demo
+
+Try the project directly in your browser:
+
+👉 https://rm-r3.github.io/bitcoin-fear-greed/
+
+No installation, no backend, no tracking — everything runs client-side.
 
 ---
 
