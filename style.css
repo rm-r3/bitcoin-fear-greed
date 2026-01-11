@@ -27,31 +27,250 @@ html, body {
   padding: 20px;
 }
 
-/* ========== Title ========== */
+/* ========== Title (scan + arcade cursor + CRT trail) ========== */
 .title {
-  -webkit-text-stroke: 2px rgba(255, 255, 255, 0.8);
-  background-color: #ff00ea;
-  text-shadow: -5px -4px #0a025e, 0 0 20px #ff00ea;
-  color: #31fa03;
+  position: relative;
+  overflow: hidden;
+  width: 100%;
   margin: 30px 0;
   padding: 25px;
-  font-size: clamp(2rem, 8vw, 4rem);
   text-align: center;
   border-radius: 12px;
+  background-color: #ff00ea;
+}
+
+.title::after {
+  box-shadow:
+    0 0 10px rgba(255,255,255,0.35),
+    0 2px 0 rgba(0,0,0,0.25);
+}
+
+/* Base title: keep your look */
+.title-base {
+  display: block;
+  width: 100%;
+
+  color: #31fa03;
+  font-size: clamp(2rem, 8vw, 4rem);
+  line-height: 1.05;
+
+  -webkit-text-stroke: 2px rgba(255, 255, 255, 0.8);
+  text-shadow: -5px -4px #0a025e, 0 0 20px #ff00ea;
+
   animation: pulse 2s ease-in-out infinite alternate;
 }
 
+/* Scan overlay (pink fill only inside letters) */
+.title-scan {
+  position: absolute;
+  inset: 0;
+
+  padding: 25px; /* matches .title padding */
+  width: 100%;
+  text-align: center;
+
+  font-size: clamp(2rem, 8vw, 4rem);
+  line-height: 1.05;
+
+  color: #ff00ea; /* revealed fill becomes pink */
+  -webkit-text-stroke: 0 transparent;
+  text-shadow: none;
+
+  pointer-events: none;
+
+  --scanW: 12%;
+  clip-path: inset(0 calc(100% - var(--scanW)) 0 0);
+  animation: titleScan 3.6s linear infinite;
+}
+
+/* Main cursor */
+.title-cursor {
+  position: absolute;
+  top: 25px;
+  bottom: 25px;
+  width: 10px;
+
+  background: #31fa03;
+  border-radius: 3px;
+
+  box-shadow:
+    0 0 18px rgba(49, 250, 3, 0.9),
+    0 0 30px rgba(49, 250, 3, 0.55);
+
+  left: 25px;
+  pointer-events: none;
+
+  animation:
+    titleCursor 3.6s linear infinite,
+    cursorFlicker 0.8s steps(1, end) infinite;
+
+  will-change: left, filter, box-shadow, transform, opacity;
+  z-index: 3;
+}
+
+/* Ghost trail base */
+.title-cursor.ghost {
+  background: rgba(255, 255, 255, 0.95);
+  filter: blur(1.2px);
+  opacity: 0;
+
+  box-shadow:
+    0 0 10px rgba(255,255,255,0.7),
+    0 0 22px rgba(255,255,255,0.35);
+
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Ghost #1: closer, brighter */
+.title-cursor.ghost-1 {
+  animation:
+    titleCursor 3.6s linear infinite,
+    ghostArcade1 3.6s linear infinite,
+    crtJitterY 0.14s steps(2, end) infinite;
+}
+
+/* Ghost #2: further, dimmer */
+.title-cursor.ghost-2 {
+  animation:
+    titleCursor 3.6s linear infinite,
+    ghostArcade2 3.6s linear infinite,
+    crtJitterY 0.22s steps(2, end) infinite;
+}
+
+/* --- Arcade "tear" band (only at reset moment) --- */
+.title::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+
+  /* band height + position (feel free to tweak) */
+  top: 58%;
+  height: 14px;
+
+  /* bright scanline style */
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0) 0%,
+    rgba(255,255,255,0.9) 20%,
+    rgba(49,250,3,0.9) 45%,
+    rgba(255,0,234,0.9) 70%,
+    rgba(255,255,255,0) 100%
+  );
+
+  opacity: 0;
+  transform: translateX(-40px) skewX(-18deg);
+  filter: blur(0.2px);
+
+  pointer-events: none;
+  z-index: 4; /* above title text/cursor */
+  mix-blend-mode: screen;
+
+  animation: titleTear 3.6s linear infinite;
+}
+
+/* pulse */
 @keyframes pulse {
-  from {
-    text-shadow: -5px -4px #0a025e, 0 0 20px #ff00ea;
+  from { text-shadow: -5px -4px #0a025e, 0 0 20px #ff00ea; }
+  to   { text-shadow: -5px -4px #0a025e, 0 0 40px #ff00ea, 0 0 60px #31fa03; }
+}
+
+/* Scan window timing */
+@keyframes titleScan {
+  0%, 12% { clip-path: inset(0 calc(100% - var(--scanW)) 0 0); }
+  72%, 90% { clip-path: inset(0 0 0 calc(100% - var(--scanW))); }
+  100% { clip-path: inset(0 calc(100% - var(--scanW)) 0 0); }
+}
+
+/* Cursor movement */
+@keyframes titleCursor {
+  0%, 12% { left: 25px; }
+  72%, 90% { left: calc(100% - 25px - 10px); }
+  100% { left: 25px; }
+}
+
+/* Arcade flicker: white 100% -> white 20% -> micro black tick */
+@keyframes cursorFlicker {
+  0% {
+    filter: none;
+    box-shadow:
+      0 0 18px rgba(49,250,3,0.9),
+      0 0 30px rgba(49,250,3,0.55);
   }
-  to {
-    text-shadow: -5px -4px #0a025e, 0 0 40px #ff00ea, 0 0 60px #31fa03;
+
+  60% {
+    filter: brightness(4) saturate(0);
+    box-shadow:
+      0 0 10px rgba(255,255,255,1),
+      0 0 26px rgba(255,255,255,0.9);
+  }
+
+  64% {
+    filter: brightness(1.4) saturate(0);
+    box-shadow: 0 0 6px rgba(255,255,255,0.2);
+  }
+
+  67% {
+    filter: brightness(0.12);
+    box-shadow: none;
+  }
+
+  72% {
+    filter: none;
+    box-shadow:
+      0 0 18px rgba(49,250,3,0.9),
+      0 0 30px rgba(49,250,3,0.55);
   }
 }
 
+/* CRT afterimage trail (visible while moving) */
+@keyframes ghostArcade1 {
+  0%, 12% { opacity: 0; transform: translateX(-8px); }
+  18%     { opacity: 0.55; transform: translateX(-9px); }
+  45%     { opacity: 0.28; transform: translateX(-10px); }
+  70%     { opacity: 0.12; transform: translateX(-11px); }
+  72%, 100% { opacity: 0; transform: translateX(-8px); }
+}
+
+@keyframes ghostArcade2 {
+  0%, 12% { opacity: 0; transform: translateX(-16px); }
+  20%     { opacity: 0.35; transform: translateX(-17px); }
+  48%     { opacity: 0.16; transform: translateX(-18px); }
+  70%     { opacity: 0.07; transform: translateX(-19px); }
+  72%, 100% { opacity: 0; transform: translateX(-16px); }
+}
+
+
+/* Subtle CRT vertical jitter (ghosts only) */
+@keyframes crtJitterY {
+  0%   { transform: translateY(0); }
+  20%  { transform: translateY(-0.6px); }
+  40%  { transform: translateY(0.8px); }
+  60%  { transform: translateY(-0.4px); }
+  80%  { transform: translateY(0.5px); }
+  100% { transform: translateY(0); }
+  }
+
+@keyframes titleTear {
+  /* silent most of the time */
+  0%, 92% { opacity: 0; transform: translateX(-40px) skewX(-18deg); }
+
+  /* quick tear starts */
+  94% { opacity: 0.85; transform: translateX(30px) skewX(-25deg); }
+
+  /* one extra "jump" like CRT sync loss */
+  95% { opacity: 0.55; transform: translateX(-10px) skewX(12deg); }
+
+  /* gone again */
+  97%, 100% { opacity: 0; transform: translateX(-40px) skewX(-18deg); }
+}  
+
 .subtitle {
+  display: block;
+  width: 100%;
   text-align: center;
+
   color: #31fa03;
   font-size: clamp(0.8rem, 2vw, 1rem);
   margin-top: -20px;
@@ -165,29 +384,58 @@ button:active {
   text-align: center;
   min-height: 30px;
 }
-
-/* ========== Train Button Attention Pulse (clear multi-pulse) ========== */
+/* ==============================
+   Train button animations
+   - train-pulse: “soft hint”
+   - train-attention: “strong blink”
+============================== */
+/* Soft pulse (keep) */
 @keyframes trainPulse {
   0% {
-    box-shadow:
-      0 4px 15px rgba(0, 0, 0, 0.3),
-      0 0 0 rgba(49, 250, 3, 0.0);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), 0 0 0 rgba(49, 250, 3, 0);
   }
   50% {
-    box-shadow:
-      0 4px 15px rgba(0, 0, 0, 0.3),
-      0 0 50px rgba(49, 250, 3, 0.95);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), 0 0 55px rgba(49, 250, 3, 0.98);
   }
   100% {
-    box-shadow:
-      0 4px 15px rgba(0, 0, 0, 0.3),
-      0 0 0 rgba(49, 250, 3, 0.0);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), 0 0 0 rgba(49, 250, 3, 0);
   }
 }
 
 .train-pulse {
-  animation: trainPulse 2.1s ease-in-out 0s 15;
+  animation: trainPulse 1.4s ease-in-out 0s 6;
 }
+
+/* Strong blink (use after fetch) */
+@keyframes trainBlink {
+  0% {
+    transform: scale(1);
+    filter: none;
+    box-shadow:
+      0 0 0 rgba(49, 250, 3, 0),
+      inset 0 0 0 rgba(255,255,255,0);
+  }
+  50% {
+    transform: scale(1.06);
+    filter: brightness(1.25);
+    box-shadow:
+      0 0 36px rgba(49, 250, 3, 1),
+      0 0 90px rgba(49, 250, 3, 0.65),
+      inset 0 0 14px rgba(255,255,255,0.4);
+  }
+  100% {
+    transform: scale(1);
+    filter: none;
+    box-shadow:
+      0 0 0 rgba(49, 250, 3, 0),
+      inset 0 0 0 rgba(255,255,255,0);
+  }
+}
+
+.train-attention {
+  animation: trainBlink 0.75s steps(2, end) infinite !important;
+}
+
 
 /* ========== Model Section ========== */
 .model-section {
@@ -605,3 +853,4 @@ details[open] summary::before {
 .visor .vega-embed {
   color: #ff00aa !important;
 }
+

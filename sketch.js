@@ -1,8 +1,10 @@
-/* sketch.js — Bitcoin Prediction (ml5 + p5 + PapaParse + CoinGecko)
-   - Robust classify callback/promise handling (ml5 versions differ)
-   - Visor: auto-open during training, auto-close after training ONLY if it was closed before
-           (reliable: uses your proven "Hide" button click with retries)
-   - UX: auto-scroll prediction result into center so it never gets covered
+/* sketch.js — Bitcoin Sentiment Prediction (ml5 + p5 + PapaParse + CoinGecko)
+   - Loads CSV dataset -> trains ml5 neural network classifier
+   - Fetches live BTC price + 24h volume from CoinGecko
+   - Predicts sentiment label + confidence from inputs
+   - Training TTL: after training, Train button shows countdown (15..0), then resets
+   - Visor: open during training; close after training only if it was closed before
+   - UX: after fetch, scroll to Train button + strong blink to guide user
 */
 
 let neuralModel = null;
@@ -12,178 +14,69 @@ let isModelReady = false;
 let isTrained = false;
 
 let tf = null;
-
-// Visor control: remember if it was already open before training
 let visorWasOpenBeforeTraining = false;
 
-/* -----------------------------
-   p5 entry point (NOT async)
------------------------------- */
+// Training freshness countdown (interval id)
+let retrainTimer = null;
+let retrainCountdown = 0;
+
+const RETRAIN_TTL = 15;       // seconds after training
+const POST_PREDICT_TTL = 5;   // optional: reduce remaining TTL after prediction
+
+/* -------------------- p5 entry -------------------- */
 function setup() {
   noCanvas();
+
   init().catch((err) => {
     console.error("Fatal init error:", err);
     setTrainStatus(`Init failed: ${err?.message ?? err}`, "status-error");
   });
 }
 
-/* -----------------------------
-   training button pulse
------------------------------- */
-function pulseTrainButton() {
-  const btn = document.querySelector("#train");
-  if (!btn) return;
-
-  btn.classList.remove("train-pulse"); // reset if needed
-  void btn.offsetWidth; // force reflow so animation restarts
-  btn.classList.add("train-pulse");
-}
-/* -----------------------------
-   helper function autoscroll
------------------------------- */
-function scrollTrainingIntoView() {
-  const el = document.querySelector(".model-section");
-  if (!el) return;
-
-  requestAnimationFrame(() => {
-    el.scrollIntoView({
-      behavior: "smooth",
-      block: "center"
-    });
-  });
-}
-/* -----------------------------
-   Main init (async)
------------------------------- */
+/* -------------------- init -------------------- */
 async function init() {
-  console.log("Starting init...");
+  if (typeof ml5 === "undefined") throw new Error("ml5 not loaded (check <script> order).");
+  if (typeof Papa === "undefined") throw new Error("PapaParse not loaded (missing CDN).");
 
-  // Guards
-  if (typeof ml5 === "undefined") {
-    throw new Error("ml5 is not loaded. Check your <script> order.");
-  }
-  if (typeof Papa === "undefined") {
-    throw new Error("PapaParse is not loaded. Add papaparse CDN in index.html.");
-  }
-
-  // Use TF instance ml5 uses (prevents mismatches)
   tf = ml5.tf;
-  if (!tf) {
-    throw new Error("ml5.tf not available. ml5 may not have loaded correctly.");
-  }
+  if (!tf) throw new Error("ml5.tf missing (ml5 not fully loaded?).");
 
   await initTensorFlowBackend();
 
-  setupButtons();
-  setDate();
-  setTrainStatus("Loading dataset…", "status-info");
+  wireUI();
+  setDefaultDate();
 
+  setTrainStatus("Loading dataset…", "status-info");
   await loadCSVData();
 
   isModelReady = true;
   setTrainStatus("Dataset loaded. Ready to train.", "status-success");
-  console.log("✓ Init complete");
 }
 
-/* -----------------------------
-   TensorFlow backend init
------------------------------- */
 async function initTensorFlowBackend() {
   try {
     await tf.setBackend("webgl");
     await tf.ready();
-    console.log("✓ TensorFlow backend:", tf.getBackend());
+    console.log("✓ TF backend:", tf.getBackend());
   } catch (e) {
     console.warn("WebGL backend failed, switching to CPU:", e);
     await tf.setBackend("cpu");
     await tf.ready();
-    console.log("✓ TensorFlow backend (CPU):", tf.getBackend());
+    console.log("✓ TF backend:", tf.getBackend());
   }
-
-  await sleep(200);
+  await sleep(150);
 }
 
-/* -----------------------------
-   CSV loading (PapaParse)
------------------------------- */
-function loadCSVData() {
-  return new Promise((resolve, reject) => {
-    console.log("Loading CSV…");
-
-    Papa.parse("./dataset_btc_fear_greed_copy.csv", {
-      download: true,
-      header: true,
-      dynamicTyping: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const rows = Array.isArray(results.data) ? results.data : [];
-        console.log(`✓ Loaded ${rows.length} rows from CSV`);
-
-        // Create model
-        neuralModel = ml5.neuralNetwork({
-          task: "classification",
-          debug: true, // visor + training graph
-          inputs: ["date", "volume", "rate"],
-          outputs: ["label"],
-        });
-
-        // Add training data
-        let count = 0;
-
-        for (const row of rows) {
-          if (!row) continue;
-
-          const dateStr = String(row.date ?? "").trim();
-          const volume = Number(row.volume);
-          const rate = Number(row.rate);
-          const label = String(row.prediction ?? "").trim();
-
-          if (!dateStr || !label) continue;
-          if (!Number.isFinite(volume) || !Number.isFinite(rate)) continue;
-
-          const dateNum = convertDate(dateStr);
-
-          neuralModel.addData(
-            { date: dateNum, volume, rate },
-            { label }
-          );
-
-          count++;
-        }
-
-        console.log(`✓ Added ${count} training examples`);
-
-        // Normalize
-        try {
-          neuralModel.normalizeData();
-          console.log("✓ Normalized data");
-        } catch (e) {
-          console.warn("normalizeData failed (continuing):", e);
-        }
-
-        resolve();
-      },
-      error: (err) => {
-        console.error("CSV parse error:", err);
-        reject(err);
-      },
-    });
-  });
+/* -------------------- UI wiring -------------------- */
+function wireUI() {
+  document.getElementById("train")?.addEventListener("click", startTraining);
+  document.getElementById("predict")?.addEventListener("click", makePrediction);
+  document.getElementById("fetchData")?.addEventListener("click", fetchLiveData);
 }
 
-/* -----------------------------
-   UI setup helpers
------------------------------- */
-function setupButtons() {
-  select("#train")?.mousePressed(startTraining);
-  select("#predict")?.mousePressed(makePrediction);
-  select("#fetchData")?.mousePressed(fetchLiveData);
-}
-
-function setDate() {
-  const today = new Date();
-  const dateStr = today.toISOString().split("T")[0];
-  select("#date")?.value(dateStr);
+function setDefaultDate() {
+  const today = new Date().toISOString().split("T")[0];
+  select("#date")?.value(today);
 }
 
 function setTrainStatus(text, className = "status-info") {
@@ -203,48 +96,170 @@ function setResult(html) {
   select("#result")?.html(html);
 }
 
-/* -----------------------------
-   Smooth scroll helper
------------------------------- */
-function scrollElementToCenter(selector) {
+/* -------------------- Scroll helpers -------------------- */
+function scrollToCenter(selector) {
   const el = document.querySelector(selector);
   if (!el) return;
+  requestAnimationFrame(() => el.scrollIntoView({ behavior: "smooth", block: "center" }));
+}
+
+function scrollTrainingIntoView() {
+  // Prefer the button itself (most reliable), fallback to section
+  const btn = document.getElementById("train");
+  const section = document.querySelector(".model-section");
+  const target = btn || section;
+  if (!target) return;
 
   requestAnimationFrame(() => {
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
   });
 }
 
-/* -----------------------------
-   Visor helpers (RELIABLE)
-   - detect open via data-isopen
-   - close by clicking "Hide" button repeatedly until closed
------------------------------- */
+/* -------------------- Train button effects -------------------- */
+function pulseTrainButton() {
+  const btn = document.querySelector("#train");
+  if (!btn) return;
+  btn.classList.remove("train-pulse");
+  void btn.offsetWidth;
+  btn.classList.add("train-pulse");
+}
+
+function emphasizeTrainButton(durationMs = 7000) {
+  const btn = document.querySelector("#train");
+  if (!btn) return;
+
+  // ensure soft pulse doesn't fight the strong blink
+  btn.classList.remove("train-pulse");
+  btn.classList.remove("train-attention");
+  void btn.offsetWidth;
+  btn.classList.add("train-attention");
+
+  window.setTimeout(() => {
+    btn.classList.remove("train-attention");
+  }, durationMs);
+}
+
+/* -------------------- TTL countdown -------------------- */
+function clearRetrainTimer() {
+  if (retrainTimer) {
+    clearInterval(retrainTimer);
+    retrainTimer = null;
+  }
+}
+
+function startRetrainCountdown(seconds = RETRAIN_TTL) {
+  clearRetrainTimer();
+  retrainCountdown = seconds;
+
+  const btn = select("#train");
+  if (!btn) return;
+
+  btn.html(`Trained (${retrainCountdown}s)`);
+
+  retrainTimer = setInterval(() => {
+    retrainCountdown--;
+
+    if (retrainCountdown <= 0) {
+      clearRetrainTimer();
+      resetTrainingState("Model expired — retrain for fresh market conditions.");
+      return;
+    }
+
+    btn.html(`Trained (${retrainCountdown}s)`);
+  }, 1000);
+}
+
+function resetTrainingState(reason = "Retrain required.") {
+  isTraining = false;
+  isTrained = false;
+
+  clearRetrainTimer();
+
+  const trainBtn = select("#train");
+  trainBtn?.html("Train Model");
+  trainBtn?.style("background-color", null);
+
+  select("#predict")?.style("display", "none");
+  setTrainStatus(reason, "status-warning");
+}
+
+/* -------------------- CSV + model -------------------- */
+function loadCSVData() {
+  return new Promise((resolve, reject) => {
+    Papa.parse("./dataset_btc_fear_greed_copy.csv", {
+      download: true,
+      header: true,
+      dynamicTyping: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const rows = Array.isArray(results.data) ? results.data : [];
+
+        neuralModel = ml5.neuralNetwork({
+          task: "classification",
+          debug: true,
+          inputs: ["date", "volume", "rate"],
+          outputs: ["label"],
+        });
+
+        let count = 0;
+
+        for (const row of rows) {
+          if (!row) continue;
+
+          const dateStr = String(row.date ?? "").trim();
+          const volume = Number(row.volume);
+          const rate = Number(row.rate);
+          const label = String(row.prediction ?? "").trim();
+
+          if (!dateStr || !label) continue;
+          if (!Number.isFinite(volume) || !Number.isFinite(rate)) continue;
+
+          const dateNum = convertDate(dateStr);
+          if (!Number.isFinite(dateNum)) continue;
+
+          neuralModel.addData({ date: dateNum, volume, rate }, { label });
+          count++;
+        }
+
+        console.log(`✓ CSV rows: ${rows.length}, training samples: ${count}`);
+
+        try {
+          neuralModel.normalizeData();
+          console.log("✓ normalizeData()");
+        } catch (e) {
+          console.warn("normalizeData failed (continuing):", e);
+        }
+
+        resolve();
+      },
+      error: (err) => reject(err),
+    });
+  });
+}
+
+/* -------------------- Visor helpers -------------------- */
 function getVisorRoot() {
   return document.querySelector(".visor");
 }
 
 function isVisorOpen() {
   const el = getVisorRoot();
-  return el?.getAttribute("data-isopen") === "true";
-}
+  if (!el) return false;
 
-function clickVisorHideButtonOnce() {
-  const buttons = document.querySelectorAll(".visor-controls button");
-  // [0] Maximize, [1] Hide
-  if (buttons && buttons.length >= 2) {
-    buttons[1].click();
-    return true;
-  }
-  return false;
+  const style = window.getComputedStyle(el);
+  if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") return false;
+
+  return !!el.querySelector(".visor-controls");
 }
 
 function openVisor() {
   try {
-    neuralModel?.vis?.visor?.().open();
-  } catch (_) {
-    // ignore
-  }
+    const v = neuralModel?.vis;
+    if (!v?.visor) return;
+
+    const visorObj = typeof v.visor === "function" ? v.visor() : v.visor;
+    visorObj?.open?.();
+  } catch (_) {}
 }
 
 function closeVisorReliable() {
@@ -252,28 +267,23 @@ function closeVisorReliable() {
   let tries = 0;
 
   const tick = () => {
-    // done if already closed or visor not present
     if (!isVisorOpen()) return;
 
-    clickVisorHideButtonOnce();
+    const buttons = document.querySelectorAll(".visor-controls button");
+    if (buttons?.length >= 2) buttons[1].click(); // Hide
 
     tries++;
-    if (tries < maxTries) {
-      setTimeout(tick, 120);
-    } else {
-      // last resort: hide visually
+    if (tries < maxTries) setTimeout(tick, 120);
+    else {
       const el = getVisorRoot();
       if (el) el.style.display = "none";
     }
   };
 
-  // delay so tfjs-vis finishes last render
   setTimeout(tick, 200);
 }
 
-/* -----------------------------
-   Training
------------------------------- */
+/* -------------------- Training -------------------- */
 function startTraining() {
   if (isTraining) return;
 
@@ -285,56 +295,49 @@ function startTraining() {
   isTraining = true;
   isTrained = false;
 
+  clearRetrainTimer();
+
   select("#train")?.html("Training…");
-  setTrainStatus("Training started… (see console for epoch/loss)", "status-info");
+  setTrainStatus("Training started…", "status-info");
 
-  // Remember state BEFORE we open anything
   visorWasOpenBeforeTraining = isVisorOpen();
-
-  // Auto-open visor for training (next tick)
   setTimeout(openVisor, 0);
 
-  console.log("Starting training…");
+  const opts = { epochs: 32, batchSize: 32 };
 
-  const opts = {
-    epochs: 32,
-    batchSize: 32,
-  };
-
-  neuralModel.train(opts, trainingProgress, trainingDone);
+  try {
+    neuralModel.train(opts, onTrainProgress, onTrainDone);
+  } catch (err) {
+    console.error("Train failed:", err);
+    isTraining = false;
+    setTrainStatus(`Training failed: ${err?.message ?? err}`, "status-error");
+    select("#train")?.html("Train Model");
+  }
 }
 
-function trainingProgress(epoch, loss) {
-  const lossVal = loss && typeof loss.loss === "number" ? loss.loss.toFixed(4) : "…";
-  console.log(`Epoch: ${epoch} - Loss: ${lossVal}`);
+function onTrainProgress(epoch, loss) {
+  const val = loss && typeof loss.loss === "number" ? loss.loss.toFixed(4) : "…";
+  console.log(`Epoch ${epoch} — loss ${val}`);
 }
 
-function trainingDone() {
-  console.log("✓ Training complete!");
+function onTrainDone() {
+  console.log("✓ Training complete");
 
   isTraining = false;
   isTrained = true;
 
-  select("#train")?.html("Trained");
   select("#train")?.style("background-color", "#31fa03");
-
-  // Show Predict button
   select("#predict")?.style("display", "inline-block");
 
   setTrainStatus("Training complete. You can predict now.", "status-success");
+  scrollToCenter("#predict");
 
-  // Scroll to the next action so user sees it
-  scrollElementToCenter("#predict");
+  if (!visorWasOpenBeforeTraining) closeVisorReliable();
 
-  // Auto-close visor ONLY if it was closed before training
-  if (!visorWasOpenBeforeTraining) {
-    closeVisorReliable();
-  }
+  startRetrainCountdown(RETRAIN_TTL);
 }
 
-/* -----------------------------
-   Prediction
------------------------------- */
+/* -------------------- Prediction -------------------- */
 function makePrediction() {
   if (!isModelReady || !neuralModel) {
     setTrainStatus("Model not ready.", "status-warning");
@@ -346,17 +349,9 @@ function makePrediction() {
   }
 
   const dateStr = String(select("#date")?.value() ?? "").trim();
-  const rateStr = String(select("#rate")?.value() ?? "").trim();
-  const volStr = String(select("#volume")?.value() ?? "").trim();
-
-  if (!dateStr || !rateStr || !volStr) {
-    setTrainStatus("Please fill Date, Price, and Volume.", "status-warning");
-    return;
-  }
-
+  const rateVal = Number(select("#rate")?.value());
+  const volVal = Number(select("#volume")?.value());
   const dateVal = convertDate(dateStr);
-  const rateVal = Number(rateStr);
-  const volVal = Number(volStr);
 
   if (!Number.isFinite(dateVal) || !Number.isFinite(rateVal) || !Number.isFinite(volVal)) {
     setTrainStatus("Invalid input values.", "status-warning");
@@ -364,16 +359,11 @@ function makePrediction() {
   }
 
   const input = { date: dateVal, volume: volVal, rate: rateVal };
-  console.log("Classifying with:", input);
 
-  // Robust classify handling: callback + promise + "results as first arg" variant
   try {
     const maybePromise = neuralModel.classify(input, handleResults);
-
     if (maybePromise && typeof maybePromise.then === "function") {
-      maybePromise
-        .then((res) => handleResults(null, res))
-        .catch((err) => handleResults(err, null));
+      maybePromise.then((res) => handleResults(null, res)).catch((err) => handleResults(err, null));
     }
   } catch (err) {
     handleResults(err, null);
@@ -381,7 +371,7 @@ function makePrediction() {
 }
 
 function handleResults(error, results) {
-  // Some ml5 versions pass results array as first arg
+  // Some ml5 builds pass results as first arg
   if (Array.isArray(error) && results == null) {
     results = error;
     error = null;
@@ -390,30 +380,22 @@ function handleResults(error, results) {
   if (error) {
     console.error("Prediction error:", error);
     setTrainStatus("Prediction failed (see console).", "status-error");
-    setResult(
-      `<div class="prediction-result"><div class="prediction-label">Prediction failed</div></div>`
-    );
-    scrollElementToCenter("#result");
+    setResult(`<div class="prediction-result"><div class="prediction-label">Prediction failed</div></div>`);
+    scrollToCenter("#result");
     return;
   }
-
-  console.log("Results:", results);
 
   if (!Array.isArray(results) || results.length === 0) {
     setTrainStatus("No prediction results.", "status-warning");
-    setResult(
-      `<div class="prediction-result"><div class="prediction-label">No results</div></div>`
-    );
-    scrollElementToCenter("#result");
+    setResult(`<div class="prediction-result"><div class="prediction-label">No results</div></div>`);
+    scrollToCenter("#result");
     return;
   }
 
-  // Pick top confidence
+  // pick top confidence
   let top = results[0];
   for (const r of results) {
-    if (typeof r?.confidence === "number" && r.confidence > (top?.confidence ?? -1)) {
-      top = r;
-    }
+    if (typeof r?.confidence === "number" && r.confidence > (top?.confidence ?? -1)) top = r;
   }
 
   const label = String(top?.label ?? "Unknown");
@@ -435,13 +417,16 @@ function handleResults(error, results) {
     </div>
   `);
 
-  // Center result card in viewport
-  scrollElementToCenter("#result");
+  scrollToCenter("#result");
+
+  // Optional: after prediction, shorten remaining TTL to encourage quick retrain
+  if (typeof retrainCountdown === "number" && retrainCountdown > POST_PREDICT_TTL) {
+    retrainCountdown = POST_PREDICT_TTL;
+    select("#train")?.html(`Trained (${retrainCountdown}s)`);
+  }
 }
 
-/* -----------------------------
-   Fetch live data (CoinGecko)
------------------------------- */
+/* -------------------- CoinGecko live fetch -------------------- */
 async function fetchLiveData() {
   const btn = select("#fetchData");
   const lastUpdate = select("#lastUpdate");
@@ -468,40 +453,35 @@ async function fetchLiveData() {
     select("#rate")?.value(Math.round(price));
     select("#volume")?.value(Math.round(vol));
 
-    const now = new Date();
-    lastUpdate?.html(`Last update (CoinGecko): ${now.toLocaleString()}`);
-    console.log("✓ CoinGecko live data:", { price, vol });
+    lastUpdate?.html(`Last update (CoinGecko): ${new Date().toLocaleString()}`);
   } catch (err) {
     console.error("Fetch Live Data failed:", err);
     lastUpdate?.html(`Fetch failed: ${err?.message ?? err}`);
   } finally {
     btn?.removeAttribute("disabled");
     btn?.html("Fetch Live Data");
-     // bring Train button into focus
-  scrollTrainingIntoView();
-  pulseTrainButton();
+
+    // guide user to train again with fresh data
+    scrollTrainingIntoView();
+    emphasizeTrainButton(7000);
   }
 }
 
-/* -----------------------------
-   Helpers
------------------------------- */
+/* -------------------- helpers -------------------- */
 function convertDate(dateStr) {
-  // expects YYYY-MM-DD
   const parts = String(dateStr).split("-");
-  if (parts.length !== 3) return 0;
+  if (parts.length !== 3) return NaN;
 
   const y = Number(parts[0]);
   const m = Number(parts[1]);
   const d = Number(parts[2]);
-
-  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return 0;
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return NaN;
 
   const inputDate = new Date(y, m - 1, d);
-  const refDate = new Date(2018, 0, 1);
+  if (Number.isNaN(inputDate.getTime())) return NaN;
 
-  const diffDays = Math.floor((inputDate - refDate) / (1000 * 60 * 60 * 24));
-  return Number.isFinite(diffDays) ? diffDays : 0;
+  const refDate = new Date(2018, 0, 1);
+  return Math.floor((inputDate - refDate) / 86400000);
 }
 
 function labelToAdvice(label) {
@@ -521,9 +501,11 @@ function labelToAdvice(label) {
   }
 }
 
-/* -----------------------------
-   About section auto-scroll
------------------------------- */
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/* -------------------- about auto-scroll -------------------- */
 document.addEventListener("DOMContentLoaded", () => {
   const aboutDetails = document.querySelector(".about-section details");
   if (!aboutDetails) return;
@@ -531,15 +513,8 @@ document.addEventListener("DOMContentLoaded", () => {
   aboutDetails.addEventListener("toggle", () => {
     if (aboutDetails.open) {
       requestAnimationFrame(() => {
-        aboutDetails.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
+        aboutDetails.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     }
   });
 });
-
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
