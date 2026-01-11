@@ -1,8 +1,8 @@
 /* sketch.js — Bitcoin Prediction (ml5 + p5 + PapaParse + CoinGecko)
-   - Robust classify callback/promise handling
-   - Visor: auto-open during training, auto-close after training (only if we opened it)
-     (Close is done via clicking the "Hide" button because it's the most reliable)
-   - UX: auto-scroll prediction result to center so it never gets covered
+   - Robust classify callback/promise handling (ml5 versions differ)
+   - Visor: auto-open during training, auto-close after training ONLY if it was closed before
+           (reliable: uses your proven "Hide" button click with retries)
+   - UX: auto-scroll prediction result into center so it never gets covered
 */
 
 let neuralModel = null;
@@ -13,8 +13,8 @@ let isTrained = false;
 
 let tf = null;
 
-// Visor control: close only if we opened it for THIS training
-let visorOpenedThisTraining = false;
+// Visor control: remember if it was already open before training
+let visorWasOpenBeforeTraining = false;
 
 /* -----------------------------
    p5 entry point (NOT async)
@@ -33,6 +33,7 @@ function setup() {
 async function init() {
   console.log("Starting init...");
 
+  // Guards
   if (typeof ml5 === "undefined") {
     throw new Error("ml5 is not loaded. Check your <script> order.");
   }
@@ -40,7 +41,7 @@ async function init() {
     throw new Error("PapaParse is not loaded. Add papaparse CDN in index.html.");
   }
 
-  // Use the TF instance ml5 uses (prevents mismatches)
+  // Use TF instance ml5 uses (prevents mismatches)
   tf = ml5.tf;
   if (!tf) {
     throw new Error("ml5.tf not available. ml5 may not have loaded correctly.");
@@ -93,6 +94,7 @@ function loadCSVData() {
         const rows = Array.isArray(results.data) ? results.data : [];
         console.log(`✓ Loaded ${rows.length} rows from CSV`);
 
+        // Create model
         neuralModel = ml5.neuralNetwork({
           task: "classification",
           debug: true, // visor + training graph
@@ -100,6 +102,7 @@ function loadCSVData() {
           outputs: ["label"],
         });
 
+        // Add training data
         let count = 0;
 
         for (const row of rows) {
@@ -115,12 +118,17 @@ function loadCSVData() {
 
           const dateNum = convertDate(dateStr);
 
-          neuralModel.addData({ date: dateNum, volume, rate }, { label });
+          neuralModel.addData(
+            { date: dateNum, volume, rate },
+            { label }
+          );
+
           count++;
         }
 
         console.log(`✓ Added ${count} training examples`);
 
+        // Normalize
         try {
           neuralModel.normalizeData();
           console.log("✓ Normalized data");
@@ -183,8 +191,9 @@ function scrollElementToCenter(selector) {
 }
 
 /* -----------------------------
-   Visor helpers
-   IMPORTANT: closing via Hide button click (reliable)
+   Visor helpers (RELIABLE)
+   - detect open via data-isopen
+   - close by clicking "Hide" button repeatedly until closed
 ------------------------------ */
 function getVisorRoot() {
   return document.querySelector(".visor");
@@ -192,69 +201,49 @@ function getVisorRoot() {
 
 function isVisorOpen() {
   const el = getVisorRoot();
-  if (!el) return false;
-  return el.getAttribute("data-isopen") === "true";
+  return el?.getAttribute("data-isopen") === "true";
 }
 
-function getVisorButtons() {
-  return document.querySelectorAll(".visor-controls button");
-}
-
-function clickVisorHideButton() {
-  const btns = getVisorButtons();
-  if (btns && btns.length >= 2) {
-    btns[1].click(); // Hide
+function clickVisorHideButtonOnce() {
+  const buttons = document.querySelectorAll(".visor-controls button");
+  // [0] Maximize, [1] Hide
+  if (buttons && buttons.length >= 2) {
+    buttons[1].click();
     return true;
   }
   return false;
 }
 
-function openVisorForTraining() {
-  visorOpenedThisTraining = false;
-
-  const wasOpen = isVisorOpen();
-
-  // Opening via ml5 API (works well)
+function openVisor() {
   try {
-    if (neuralModel?.vis?.visor) neuralModel.vis.visor().open();
-  } catch (_) {}
-
-  // Claim ownership ONLY if it was closed before and becomes open now
-  setTimeout(() => {
-    const nowOpen = isVisorOpen();
-    visorOpenedThisTraining = !wasOpen && nowOpen;
-  }, 80);
+    neuralModel?.vis?.visor?.().open();
+  } catch (_) {
+    // ignore
+  }
 }
 
-function closeVisorAfterTraining() {
-  if (!visorOpenedThisTraining) return;
-
+function closeVisorReliable() {
+  const maxTries = 20;
   let tries = 0;
-  const maxTries = 12;
 
-  const attempt = () => {
-    // already closed
-    if (!isVisorOpen()) {
-      visorOpenedThisTraining = false;
-      return;
-    }
+  const tick = () => {
+    // done if already closed or visor not present
+    if (!isVisorOpen()) return;
 
-    const clicked = clickVisorHideButton();
+    clickVisorHideButtonOnce();
 
     tries++;
     if (tries < maxTries) {
-      // if controls weren't ready, retry faster; if clicked, give it a moment to update data-isopen
-      setTimeout(attempt, clicked ? 140 : 80);
-      return;
+      setTimeout(tick, 120);
+    } else {
+      // last resort: hide visually
+      const el = getVisorRoot();
+      if (el) el.style.display = "none";
     }
-
-    // last resort (visual hide only)
-    const el = getVisorRoot();
-    if (el) el.style.display = "none";
-    visorOpenedThisTraining = false;
   };
 
-  setTimeout(attempt, 120);
+  // delay so tfjs-vis finishes last render
+  setTimeout(tick, 200);
 }
 
 /* -----------------------------
@@ -274,12 +263,19 @@ function startTraining() {
   select("#train")?.html("Training…");
   setTrainStatus("Training started… (see console for epoch/loss)", "status-info");
 
-  // Open visor next tick
-  setTimeout(openVisorForTraining, 0);
+  // Remember state BEFORE we open anything
+  visorWasOpenBeforeTraining = isVisorOpen();
+
+  // Auto-open visor for training (next tick)
+  setTimeout(openVisor, 0);
 
   console.log("Starting training…");
 
-  const opts = { epochs: 32, batchSize: 32 };
+  const opts = {
+    epochs: 32,
+    batchSize: 32,
+  };
+
   neuralModel.train(opts, trainingProgress, trainingDone);
 }
 
@@ -297,14 +293,18 @@ function trainingDone() {
   select("#train")?.html("Trained");
   select("#train")?.style("background-color", "#31fa03");
 
+  // Show Predict button
   select("#predict")?.style("display", "inline-block");
+
   setTrainStatus("Training complete. You can predict now.", "status-success");
 
-  // Scroll to next action
+  // Scroll to the next action so user sees it
   scrollElementToCenter("#predict");
 
-  // Close visor reliably (Hide button) if we opened it
-  setTimeout(closeVisorAfterTraining, 250);
+  // Auto-close visor ONLY if it was closed before training
+  if (!visorWasOpenBeforeTraining) {
+    closeVisorReliable();
+  }
 }
 
 /* -----------------------------
@@ -341,6 +341,7 @@ function makePrediction() {
   const input = { date: dateVal, volume: volVal, rate: rateVal };
   console.log("Classifying with:", input);
 
+  // Robust classify handling: callback + promise + "results as first arg" variant
   try {
     const maybePromise = neuralModel.classify(input, handleResults);
 
@@ -364,14 +365,20 @@ function handleResults(error, results) {
   if (error) {
     console.error("Prediction error:", error);
     setTrainStatus("Prediction failed (see console).", "status-error");
-    setResult(`<div class="prediction-result"><div class="prediction-label">Prediction failed</div></div>`);
+    setResult(
+      `<div class="prediction-result"><div class="prediction-label">Prediction failed</div></div>`
+    );
     scrollElementToCenter("#result");
     return;
   }
 
+  console.log("Results:", results);
+
   if (!Array.isArray(results) || results.length === 0) {
     setTrainStatus("No prediction results.", "status-warning");
-    setResult(`<div class="prediction-result"><div class="prediction-label">No results</div></div>`);
+    setResult(
+      `<div class="prediction-result"><div class="prediction-label">No results</div></div>`
+    );
     scrollElementToCenter("#result");
     return;
   }
@@ -403,7 +410,7 @@ function handleResults(error, results) {
     </div>
   `);
 
-  // Center the result
+  // Center result card in viewport
   scrollElementToCenter("#result");
 }
 
@@ -452,6 +459,7 @@ async function fetchLiveData() {
    Helpers
 ------------------------------ */
 function convertDate(dateStr) {
+  // expects YYYY-MM-DD
   const parts = String(dateStr).split("-");
   if (parts.length !== 3) return 0;
 
