@@ -1,5 +1,6 @@
 ![Status](https://img.shields.io/badge/status-complete-brightgreen)
 ![Version](https://img.shields.io/badge/version-v2.1.1-blue)
+[![Live Demo](https://img.shields.io/badge/demo-GitHub%20Pages-blue?logo=github)](https://rm-r3.github.io/bitcoin-fear-greed/)
 
 # Bitcoin Fear & Greed
 
