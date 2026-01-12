@@ -33,7 +33,7 @@ function setup() {
   });
 }
 
-/* -------------------- init -------------------- */
+/* -------------------- init --------------------- */
 async function init() {
   if (typeof ml5 === "undefined") throw new Error("ml5 not loaded (check <script> order).");
   if (typeof Papa === "undefined") throw new Error("PapaParse not loaded (missing CDN).");

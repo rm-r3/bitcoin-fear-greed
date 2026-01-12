@@ -138,7 +138,7 @@ html, body {
     crtJitterY 0.22s steps(2, end) infinite;
 }
 
-/* --- Arcade "tear" band (only at reset moment) --- */
+/* --- Arcade "tear" band effect (only at reset moment) --- */
 .title::after {
   content: "";
   position: absolute;
